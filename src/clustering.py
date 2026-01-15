@@ -1,18 +1,23 @@
 from typing import List, Tuple
+import os
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
 
-MODEL_NAME = 'all-MiniLM-L6-v2'
+MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
+CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
 _model = None
+
+os.environ['HF_HUB_OFFLINE'] = '1'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
 
 def get_model() -> SentenceTransformer:
     global _model
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        _model = SentenceTransformer(MODEL_NAME, cache_folder=CACHE_DIR, device='cpu')
     return _model
 
 

@@ -2,18 +2,22 @@
 
 import streamlit as st
 import pandas as pd
-import sys
 import os
+import sys
+
+# -----------------------
+# Make sure Python sees src/
+# -----------------------
+# Get absolute path to the repo root (parent of pages/)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Add repo root to Python path
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
-    sys.path.append(REPO_ROOT)
+    sys.path.insert(0, REPO_ROOT)
 
-# Now import from the src package
+# Now import from src package
 from src.clustering import predict_defect_root_action, predict_batch
 from src.extraction import enrich_dataframe, load_prod_data
-
 
 
 # =========================

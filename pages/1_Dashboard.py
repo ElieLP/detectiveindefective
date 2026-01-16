@@ -34,8 +34,8 @@ with col3:
 
 with col4:
     st.subheader("📅 NCR Trend Over Time")
-    enriched_df['Date of detection'] = pd.to_datetime(enriched_df['Date of detection'], format='%m/%d/%y', errors='coerce')
-    trend = enriched_df.groupby(enriched_df['Date of detection'].dt.date).size().reset_index(name='Count')
+    dates = pd.to_datetime(df['Date of detection'], format='%m/%d/%y', errors='coerce')
+    trend = dates.dropna().dt.date.value_counts().sort_index().reset_index()
     trend.columns = ['Date', 'Count']
     st.line_chart(trend.set_index('Date'))
 

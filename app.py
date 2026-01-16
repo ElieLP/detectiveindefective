@@ -11,7 +11,7 @@ st.subheader("NCR Analysis Copilot")
 
 df = load_prod_data()
 enriched_df = enrich_dataframe(df)
-clustered_df = add_embeddings_and_clusters(enriched_df, description_col='NC description', n_clusters=4)
+clustered_df = add_embeddings_and_clusters(enriched_df, description_col='root_cause', n_clusters=4)
 
 st.success(f"Loaded {len(df)} NCRs")
 

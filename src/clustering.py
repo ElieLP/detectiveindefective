@@ -39,7 +39,7 @@ def cluster_ncrs(embeddings: np.ndarray, n_clusters: int = 5) -> np.ndarray:
     return kmeans.fit_predict(embeddings)
 
 
-def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'description', n_clusters: int = 5) -> pd.DataFrame:
+def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'root_cause', n_clusters: int = 5) -> pd.DataFrame:
     result = df.copy()
     texts = df[description_col].tolist()
     embeddings = compute_embeddings(texts)

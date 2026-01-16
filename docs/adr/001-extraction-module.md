@@ -1,19 +1,21 @@
 # ADR-001: NCR Information Extraction Module
 
 **Status:** Accepted  
-**Date:** 2026-01-15  
+**Date:** 2026-01-16 (Updated)  
 **Context:** Hackathon PoC - Industrial AI Detective
 
 ---
 
 ## Context
 
-The hackathon challenge requires extracting key elements from NCR (Non-Conformity Report) free-text descriptions:
+The hackathon challenge requires extracting key elements from NCR (Non-Conformity Report) data:
 - Defect type
 - Machine/equipment
-- Supplier
-- Operator
-- Process step / Lot number
+- NC Code
+- Operation number
+- Root cause
+
+Data source: `data/prod_data.csv` (semicolon-separated, real production data).
 
 We need a solution that works offline, is fast, and doesn't require API keys or external services.
 
@@ -44,10 +46,9 @@ For a 24h PoC with ~100 NCRs and **known, structured entity formats** (e.g., `MA
 
 | Entity | Regex Pattern | Examples |
 |--------|---------------|----------|
-| Machine | `MACHINE_\d+`, `WELDER_\d+`, `FURNACE_\d+`, etc. | `MACHINE_01`, `WELDER_03` |
-| Supplier | Hardcoded list: `STEELCO`, `METALWORKS`, etc. | `ALLOYTECH`, `SEALTECH` |
-| Operator | `[A-Z]+_[A-Z]` | `JEAN_D`, `MARIE_L` |
-| Lot | `LOT-\d{4}-\d+` | `LOT-2025-0012` |
+| Machine | `EM\d+`, `AAAA-\d+-\d+`, `BBBB-\d+-\d+`, `CCCC-\d+-\d+` | `EM1060`, `AAAA-02-09`, `BBBB-02-06` |
+| NC Code | `[A-Z]{2}\d{4}` | `CO2610`, `EL0312`, `TR0310` |
+| Operation | `OP\d+` | `OP7200`, `OP7300`, `OP4000` |
 
 ### Defect Classification
 
@@ -55,10 +56,12 @@ Keyword-based scoring. Each defect type has associated keywords:
 
 ```python
 DEFECT_KEYWORDS = {
-    'dimensional': ['dimensional', 'diameter', 'width', 'mm', 'slot', 'thread'],
-    'surface': ['surface', 'finish', 'scratch', 'paint', 'adhesion'],
-    'weld': ['weld', 'porosity', 'fracture', 'joint'],
-    ...
+    'dimensional': ['dimensional', 'diameter', 'tolerance', 'mm', 'out of tolerance', 'gauge', 'no-go'],
+    'surface': ['surface', 'scratch', 'dent', 'pit', 'bulge', 'offset'],
+    'marking': ['marking', 'faint', 'unrecognizable', 'character', 'dot', 'label'],
+    'appearance': ['appearance', 'collapse', 'tooth', 'rib', 'slot'],
+    'process': ['deviation', 'calibration', 'compensation', 'clamping', 'centering', 'not stable'],
+    'measurement': ['re-measurement', 'after re-measurement', 'FCTD', 'mini program'],
 }
 ```
 
@@ -68,23 +71,22 @@ The defect type with the highest keyword match count wins.
 
 | Function | Input | Output |
 |----------|-------|--------|
-| `extract_machines(text)` | NCR description | `List[str]` of machine IDs |
-| `extract_suppliers(text)` | NCR description | `List[str]` of supplier names |
-| `extract_operators(text)` | NCR description | `List[str]` of operator codes |
-| `extract_lots(text)` | NCR description | `List[str]` of lot numbers |
-| `classify_defect(text)` | NCR description | `str` defect type |
-| `extract_all(text)` | NCR description | `Dict` with all extractions |
-| `enrich_dataframe(df)` | DataFrame with `description` col | DataFrame with new columns |
+| `extract_machines(text)` | NCR text | `List[str]` of machine IDs |
+| `extract_nc_codes(text)` | NCR text | `List[str]` of NC codes |
+| `extract_operations(text)` | NCR text | `List[str]` of operation numbers |
+| `classify_defect(text)` | NCR text | `str` defect type |
+| `extract_all(text)` | NCR text | `Dict` with all extractions |
+| `enrich_dataframe(df)` | DataFrame | DataFrame with extracted columns |
+| `load_prod_data(filepath)` | CSV path | DataFrame from prod_data.csv |
 
 ### Usage
 
 ```python
-from src.extraction import enrich_dataframe
-import pandas as pd
+from src.extraction import enrich_dataframe, load_prod_data
 
-df = pd.read_csv('data/sample_ncrs.csv')
+df = load_prod_data()  # Reads data/prod_data.csv (semicolon-separated)
 enriched = enrich_dataframe(df)
-# Now df has: machines, suppliers, operators, lots, defect_type columns
+# Now df has: extracted_machines, extracted_nc_codes, extracted_operations, defect_type, root_cause columns
 ```
 
 ---
@@ -112,7 +114,7 @@ enriched = enrich_dataframe(df)
 ## Test
 
 ```bash
-python3 src/extraction.py
+.venv/bin/python src/extraction.py
 ```
 
-Outputs extracted fields for all NCRs in `data/sample_ncrs.csv`.
+Outputs extracted fields for all NCRs in `data/prod_data.csv`.

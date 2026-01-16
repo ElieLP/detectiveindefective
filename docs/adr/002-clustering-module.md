@@ -1,7 +1,7 @@
 # ADR-002: NCR Clustering Module
 
 **Status:** Accepted  
-**Date:** 2026-01-15  
+**Date:** 2026-01-16 (Updated)  
 **Context:** Hackathon PoC - Industrial AI Detective
 
 ---
@@ -10,10 +10,10 @@
 
 The hackathon challenge requires:
 - Grouping NCRs by similarity and defect families
-- Detecting recurring patterns
+- Detecting recurring patterns based on **root causes**
 - Finding similar historical cases
 
-We need a way to measure semantic similarity between NCR descriptions, not just keyword matching.
+We cluster on the `root_cause` column to group NCRs with similar underlying causes, enabling pattern detection across different defect types.
 
 ---
 
@@ -52,7 +52,7 @@ For a 24h PoC with ~100 NCRs, embeddings provide the best balance of quality and
 ### Architecture
 
 ```
-NCR descriptions
+Root cause texts
       │
       ▼
 ┌─────────────────┐
@@ -102,14 +102,18 @@ This avoids reloading the 90MB model on every call.
 ### Usage
 
 ```python
+from src.extraction import load_prod_data, enrich_dataframe
 from src.clustering import add_embeddings_and_clusters, find_similar, compute_embeddings
 
-# Add clusters to dataframe
-df = pd.read_csv('data/sample_ncrs.csv')
-df = add_embeddings_and_clusters(df, n_clusters=4)
+# Load and enrich data
+df = load_prod_data()
+df = enrich_dataframe(df)
 
-# Find similar NCRs
-query = "dimensional issue on CNC machine"
+# Cluster by root cause (default)
+df = add_embeddings_and_clusters(df, description_col='root_cause', n_clusters=4)
+
+# Find similar NCRs by root cause
+query = "tool calibration NOK"
 query_embedding = compute_embeddings([query])[0]
 similar = find_similar(query_embedding, df['embedding'].tolist(), top_k=5)
 ```
@@ -119,13 +123,15 @@ similar = find_similar(query_embedding, df['embedding'].tolist(), top_k=5)
 ## Test Results
 
 ```
-Cluster distribution (n_clusters=4):
+Cluster distribution (n_clusters=4) on root_cause:
 cluster
-0     4   # Test failures, packaging
-1     3   # Documentation/labeling
-2     2   # Weld defects
-3    11   # Dimensional/surface (largest)
+0    XX   # Tool calibration issues (AAAA-02-09)
+1    XX   # Clamping/pitching issues (AAAA-02-06)
+2    XX   # Marking machine precision NOK
+3    XX   # Transportation/handling damage
 ```
+
+Clustering on root cause groups NCRs by underlying problem, not just symptoms.
 
 ---
 

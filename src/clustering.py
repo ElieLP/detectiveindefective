@@ -48,12 +48,21 @@ import joblib
 # =========================
 # ===== Load your ML models =====
 # =========================
-stage1_pipeline = joblib.load("stage1_defect_model.pkl")       # TF-IDF + LogisticRegression
-root_cause_model = joblib.load("stage2_root_cause_model.pkl")  # LogisticRegression
-action_model = joblib.load("stage3_corrective_action_model.pkl") # LogisticRegression
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-encoder = joblib.load("encoder_defect.pkl")        # OneHotEncoder for defect -> root cause
-encoder2 = joblib.load("encoder_defect_root.pkl")  # OneHotEncoder for defect+root -> action
+# Build paths to models
+stage1_path = os.path.join(BASE_DIR, "..", "stage1_defect_model.pkl")
+stage2_path = os.path.join(BASE_DIR, "..", "stage2_root_cause_model.pkl")
+stage3_path = os.path.join(BASE_DIR, "..", "stage3_corrective_action_model.pkl")
+encoder_path = os.path.join(BASE_DIR, "..", "encoder_defect.pkl")
+encoder2_path = os.path.join(BASE_DIR, "..", "encoder_defect_root.pkl")
+
+# Load models
+stage1_pipeline = joblib.load(stage1_path)
+root_cause_model = joblib.load(stage2_path)
+action_model = joblib.load(stage3_path)
+encoder = joblib.load(encoder_path)
+encoder2 = joblib.load(encoder2_path)
 
 # =========================
 # ===== Prediction function =====

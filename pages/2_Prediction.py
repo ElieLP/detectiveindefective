@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from src.prediction import predict_from_csv, load_context_data, build_context_prompt, predict_root_cause_and_action
+from src.prediction import load_context_data, build_context_prompt, predict_batch
 
 st.set_page_config(page_title="Prediction", page_icon="🔮", layout="wide")
 
@@ -21,25 +21,20 @@ if uploaded_file is not None:
             context_df = load_context_data()
             context = build_context_prompt(context_df)
         
+        with st.spinner(f"Predicting root causes for {len(df)} rows..."):
+            predictions = predict_batch(df, context)
+        
         root_causes = []
         corrective_actions = []
-        progress_bar = st.progress(0)
-        
         for idx, row in df.iterrows():
             root_cause = row.get('Root cause of occurrence', '')
             corrective = row.get('Corrective actions', '')
             needs_root_cause = pd.isna(root_cause) or root_cause == ''
             needs_corrective = pd.isna(corrective) or corrective == ''
             
-            if needs_root_cause or needs_corrective:
-                with st.spinner(f"Predicting row {idx + 1}/{len(df)}..."):
-                    pred_root, pred_action = predict_root_cause_and_action(row, context)
-                    root_causes.append(pred_root if needs_root_cause else root_cause)
-                    corrective_actions.append(pred_action if needs_corrective else corrective)
-            else:
-                root_causes.append(root_cause)
-                corrective_actions.append(corrective)
-            progress_bar.progress((idx + 1) / len(df))
+            pred_root, pred_action = predictions[idx]
+            root_causes.append(pred_root if needs_root_cause else root_cause)
+            corrective_actions.append(pred_action if needs_corrective else corrective)
         
         df['Root cause of occurrence'] = root_causes
         df['Corrective actions'] = corrective_actions

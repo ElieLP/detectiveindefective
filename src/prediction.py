@@ -100,6 +100,91 @@ def predict_root_cause_and_action(row: pd.Series, context: str) -> tuple[str, st
         raise Exception(f"DashScope error: {response.code} - {response.message}")
 
 
+def build_batch_prediction_prompt(df: pd.DataFrame, context: str) -> str:
+    """Build prompt for predicting root cause and corrective actions for multiple NCRs."""
+    ncr_items = []
+    for idx, row in df.iterrows():
+        ncr_items.append(f"""[NCR {idx}]
+NC Code: {row.get('NC Code', '')}
+NC Description: {row.get('NC description', '')}
+Part Type: {row.get('Part type', '')}
+Machine of Detection: {row.get('MachineNum of detection', '')}
+Machine of Occurrence: {row.get('MachineNum of occurrence', '')}
+Operation of Detection: {row.get('Operation number of detection', '')}
+Operation of Occurrence: {row.get('Operation number of occurrence', '')}
+Defect Description: {row.get('FDefectDesc_EN', '')}
+QC Comments: {row.get('Fqccomments_EN', '')}""")
+    
+    ncr_list = "\n\n".join(ncr_items)
+    
+    return f"""You are an expert in manufacturing quality control and root cause analysis.
+
+Based on the following historical NCR (Non-Conformance Report) data:
+
+{context}
+
+Predict the most likely root cause AND corrective action for each of these NCRs:
+
+{ncr_list}
+
+Respond in this exact format for each NCR (one block per NCR, in order):
+[NCR <index>]
+Root Cause: <predicted root cause>
+Corrective Action: <predicted corrective action>
+"""
+
+
+def predict_batch(df: pd.DataFrame, context: str) -> list[tuple[str, str]]:
+    """Predict root cause and corrective action for multiple NCR rows in a single API call."""
+    prompt = build_batch_prediction_prompt(df, context)
+    
+    messages = [
+        {'role': Role.SYSTEM, 'content': 'You are an expert in manufacturing quality control and root cause analysis.'},
+        {'role': Role.USER, 'content': prompt}
+    ]
+    
+    response = Generation.call(
+        model='qwen-plus',
+        messages=messages,
+        result_format='message',
+        temperature=0.3,
+        max_tokens=150 * len(df)
+    )
+    
+    if response.status_code == HTTPStatus.OK:
+        content = response.output.choices[0].message.content.strip()
+        return parse_batch_response(content, len(df))
+    else:
+        raise Exception(f"DashScope error: {response.code} - {response.message}")
+
+
+def parse_batch_response(content: str, expected_count: int) -> list[tuple[str, str]]:
+    """Parse batch response into list of (root_cause, corrective_action) tuples."""
+    results = []
+    current_root = ''
+    current_action = ''
+    
+    for line in content.split('\n'):
+        line = line.strip()
+        if line.lower().startswith('[ncr'):
+            if current_root or current_action:
+                results.append((current_root, current_action))
+            current_root = ''
+            current_action = ''
+        elif line.lower().startswith('root cause:'):
+            current_root = line.split(':', 1)[1].strip()
+        elif line.lower().startswith('corrective action:'):
+            current_action = line.split(':', 1)[1].strip()
+    
+    if current_root or current_action:
+        results.append((current_root, current_action))
+    
+    while len(results) < expected_count:
+        results.append(('', ''))
+    
+    return results[:expected_count]
+
+
 def predict_from_csv(
     input_filepath: str,
     context_filepath: str = 'data/prod_data_enriched.csv',

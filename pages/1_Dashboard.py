@@ -57,3 +57,21 @@ st.subheader("📋 QA Comment Categories")
 fqc_cats = enriched_df['fqc_category'].value_counts().reset_index()
 fqc_cats.columns = ['Category', 'Count']
 st.dataframe(fqc_cats, use_container_width=True, hide_index=True)
+
+st.subheader("🔗 Attribute Correlations")
+correlation_fields = ['MachineNum of detection', 'NC Code', 'Part type', 'root_cause_category', 'corrective_category', 'defect_type']
+available_fields = [f for f in correlation_fields if f in enriched_df.columns]
+
+col_a, col_b = st.columns(2)
+with col_a:
+    field1 = st.selectbox("Select first attribute", available_fields, index=0)
+with col_b:
+    field2 = st.selectbox("Select second attribute", available_fields, index=1)
+
+if field1 and field2 and field1 != field2:
+    pair_counts = enriched_df.groupby([field1, field2]).size().reset_index(name='Count')
+    pair_counts = pair_counts.sort_values('Count', ascending=False).head(15)
+    pair_counts.columns = [field1, field2, 'Count']
+    st.dataframe(pair_counts, use_container_width=True, hide_index=True)
+else:
+    st.info("Select two different attributes to see their correlation.")

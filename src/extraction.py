@@ -1,6 +1,7 @@
 import re
 from typing import Dict, List
 import pandas as pd
+import numpy as np
  
 MACHINE_PATTERN = r'\b(EM\d+|AAAA-\d+-\d+|BBBB-\d+-\d+|CCCC-\d+-\d+|MARK-\d+-\d+)\b'
 NC_CODE_PATTERN = r'\b([A-Z]{2}\d{4})\b'
@@ -48,14 +49,101 @@ def extract_all(text: str) -> Dict:
         'operations': extract_operations(text),
         'defect_type': classify_defect(text),
     }
+
+
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean placeholder values (/, \, ,) and empty strings to NaN."""
+    cleaned = df.copy()
+    cleaned = cleaned.replace(r'[\/\\,]', np.nan, regex=True)
+    cleaned = cleaned.replace(r'^\s*$', np.nan, regex=True)
+    return cleaned
+
+
+def categorize_corrective(val: str) -> str:
+    """Categorize corrective actions."""
+    val = str(val).strip().lower()
+    if val in ['nan', 'none', '']:
+        return 'Not Specified'
+    elif 'clamping force' in val:
+        return 'Cancel Releasing Clamping Force'
+    elif 'manual tool calibration' in val:
+        return 'Add Manual Tool Calibration'
+    elif 'compensation' in val:
+        return 'Cancelled Compensation'
+    elif 'lesson' in val:
+        return 'Lesson & Learn'
+    elif 'marking' in val and 'maintenance' in val:
+        return 'Marking Machine Maintenance'
+    else:
+        return 'Other'
+
+
+def categorize_root_cause(val: str) -> str:
+    """Categorize root causes."""
+    val = str(val).strip()
+    if val in ['NaN', 'nan', '', 'None']:
+        return 'Undefined'
+    elif 'EL2415' in val:
+        return 'Related to NC EL2415'
+    elif 'Marking' in val or 'marking' in val:
+        return 'Marking Precision'
+    elif 'AAAA-02-11 deviation' in val:
+        return 'Machine AAAA-02-11 Deviation'
+    elif 'CP&CPK' in val or 'Cp' in val:
+        return 'Process Stability (CP/CPK)'
+    elif 'AAAA-02-11 not stable' in val:
+        return 'Machine AAAA-02-11 Stability'
+    elif 'transportation' in val:
+        return 'Logistics & Transport'
+    elif 'not clear' in val:
+        return 'Unclear'
+    elif 'BBBB-02-05' in val and ('centering' in val or 'cerntering' in val):
+        return 'Machine BBBB-02-05 Centering'
+    elif 'calibration' in val.lower():
+        return 'Tool Calibration'
+    elif 'investigation' in val.lower():
+        return 'Under Investigation'
+    else:
+        return 'Other'
+
+
+def categorize_fqc(text: str) -> str:
+    """Categorize QA comments."""
+    text = str(text).lower().strip()
+    if text in ['nan', 'none', '', '/']:
+        return 'Undefined'
+    elif any(word in text for word in ['awaiting', 'waiting', 'investigation']):
+        return 'Pending Decision'
+    elif any(word in text for word in ['continue', 'accept', 'approved', 'verbal']):
+        return 'Decision: Proceed/Accept'
+    elif any(word in text for word in ['re-measurement', 'recheck', 'retest', 'fctd', 'attachment']):
+        return 'Measurement/Verification'
+    elif any(word in text for word in ['confirmed', 'reply', 'decided', 'rework']):
+        return 'QA Replied/Action Taken'
+    else:
+        return 'Other'
+
+
+def extract_comment_dates(text: str) -> str:
+    """Extract dates from comments."""
+    text = str(text)
+    dates = re.findall(r'\d{4}[./-]\d{2}[./-]\d{2}', text)
+    return '; '.join(dates) if dates else ''
+
+
+def extract_comment_codes(text: str) -> str:
+    """Extract department codes from comments."""
+    text = str(text)
+    codes = re.findall(r'[A-Z]{4}-\d{2}-\d{2}', text)
+    return '; '.join(codes) if codes else ''
  
  
 def enrich_dataframe(df: pd.DataFrame, description_col: str = 'NC description') -> pd.DataFrame:
-    enriched = df.copy()
+    enriched = clean_dataframe(df)
     
     text_cols = ['NC description', 'FDefectDesc_EN', 'Fqccomments_EN', 'Root cause of occurrence']
-    available_cols = [c for c in text_cols if c in df.columns]
-    combined_text = df[available_cols].fillna('').agg(' '.join, axis=1)
+    available_cols = [c for c in text_cols if c in enriched.columns]
+    combined_text = enriched[available_cols].fillna('').agg(' '.join, axis=1)
     
     extractions = combined_text.apply(extract_all)
     enriched['extracted_machines'] = extractions.apply(lambda x: ', '.join(x['machines']) if x['machines'] else '')
@@ -63,8 +151,17 @@ def enrich_dataframe(df: pd.DataFrame, description_col: str = 'NC description') 
     enriched['extracted_operations'] = extractions.apply(lambda x: ', '.join(x['operations']) if x['operations'] else '')
     enriched['defect_type'] = extractions.apply(lambda x: x['defect_type'])
     
-    if 'Root cause of occurrence' in df.columns:
-        enriched['root_cause'] = df['Root cause of occurrence'].fillna('')
+    if 'Root cause of occurrence' in enriched.columns:
+        enriched['root_cause'] = enriched['Root cause of occurrence'].fillna('')
+        enriched['root_cause_category'] = enriched['Root cause of occurrence'].apply(categorize_root_cause)
+    
+    if 'Corrective actions' in enriched.columns:
+        enriched['corrective_category'] = enriched['Corrective actions'].apply(categorize_corrective)
+    
+    if 'Fqccomments_EN' in enriched.columns:
+        enriched['fqc_category'] = enriched['Fqccomments_EN'].apply(categorize_fqc)
+        enriched['fqc_dates'] = enriched['Fqccomments_EN'].apply(extract_comment_dates)
+        enriched['fqc_dept_codes'] = enriched['Fqccomments_EN'].apply(extract_comment_codes)
     
     return enriched
 

@@ -1,21 +1,19 @@
 # pages/3_Similarity.py
 
 import streamlit as st
+import pandas as pd
 import sys
 import os
-import pandas as pd
 
-# Absolute repo root
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up from pages/
-SRC_DIR = os.path.join(REPO_ROOT, "src")
+# Add repo root to Python path
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.append(REPO_ROOT)
 
-# Add src folder to Python path
-if SRC_DIR not in sys.path:
-    sys.path.append(SRC_DIR)
+# Now import from the src package
+from src.clustering import predict_defect_root_action, predict_batch
+from src.extraction import enrich_dataframe, load_prod_data
 
-# Now import works
-from clustering import predict_defect_root_action, predict_batch
-from extraction import enrich_dataframe, load_prod_data
 
 
 # =========================

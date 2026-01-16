@@ -52,10 +52,11 @@ def extract_all(text: str) -> Dict:
 
 
 def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean placeholder values (/, \, ,) and empty strings to NaN."""
+    """Clean placeholder values (/, \\, ,) and empty strings to NaN."""
     cleaned = df.copy()
-    cleaned = cleaned.replace(r'[\/\\,]', np.nan, regex=True)
-    cleaned = cleaned.replace(r'^\s*$', np.nan, regex=True)
+    with pd.option_context('future.no_silent_downcasting', True):
+        cleaned = cleaned.replace(r'[\/\\,]', np.nan, regex=True)
+        cleaned = cleaned.replace(r'^\s*$', np.nan, regex=True)
     return cleaned
 
 
@@ -213,5 +214,6 @@ def load_prod_data(filepath: str = 'data/prod_data.csv') -> pd.DataFrame:
 if __name__ == '__main__':
     df = load_prod_data()
     enriched = enrich_dataframe(df)
+    enriched.to_csv('data/prod_data_enriched.csv', index=False, sep=';')
     print(enriched[['Job order', 'NC Code', 'extracted_machines', 'defect_type']].head(10).to_string())
  

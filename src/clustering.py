@@ -39,6 +39,15 @@ def cluster_ncrs(embeddings: np.ndarray, n_clusters: int = 5) -> np.ndarray:
     return kmeans.fit_predict(embeddings)
 
 
+def compute_attribute_correlation(df: pd.DataFrame, field1: str, field2: str) -> pd.DataFrame:
+    """Compute crosstab between two categorical fields to show their correlation."""
+    if field1 not in df.columns or field2 not in df.columns:
+        return pd.DataFrame()
+    
+    crosstab = pd.crosstab(df[field1].fillna('Unknown'), df[field2].fillna('Unknown'))
+    return crosstab
+
+
 def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'root_cause', n_clusters: int = 5) -> pd.DataFrame:
     result = df.copy()
     texts = df[description_col].tolist()

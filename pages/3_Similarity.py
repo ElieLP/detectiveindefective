@@ -5,11 +5,18 @@ import sys
 import os
 import pandas as pd
 
-# Add src folder to Python path (for Streamlit Cloud)
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Absolute repo root
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up from pages/
+SRC_DIR = os.path.join(REPO_ROOT, "src")
 
-from extraction import enrich_dataframe, load_prod_data
+# Add src folder to Python path
+if SRC_DIR not in sys.path:
+    sys.path.append(SRC_DIR)
+
+# Now import works
 from clustering import predict_defect_root_action, predict_batch
+from extraction import enrich_dataframe, load_prod_data
+
 
 # =========================
 # Streamlit page config

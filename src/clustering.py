@@ -48,14 +48,15 @@ import joblib
 # =========================
 # ===== Load your ML models =====
 # =========================
+# Folder where clustering.py is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Build paths to models
-stage1_path = os.path.join(BASE_DIR, "..", "stage1_defect_model.pkl")
-stage2_path = os.path.join(BASE_DIR, "..", "stage2_root_cause_model.pkl")
-stage3_path = os.path.join(BASE_DIR, "..", "stage3_corrective_action_model.pkl")
-encoder_path = os.path.join(BASE_DIR, "..", "encoder_defect.pkl")
-encoder2_path = os.path.join(BASE_DIR, "..", "encoder_defect_root.pkl")
+# Paths to your models (all in the same folder)
+stage1_path = os.path.join(BASE_DIR, "stage1_defect_model.pkl")
+stage2_path = os.path.join(BASE_DIR, "stage2_root_cause_model.pkl")
+stage3_path = os.path.join(BASE_DIR, "stage3_corrective_action_model.pkl")
+encoder_path = os.path.join(BASE_DIR, "encoder_defect.pkl")
+encoder2_path = os.path.join(BASE_DIR, "encoder_defect_root.pkl")
 
 # Load models
 stage1_pipeline = joblib.load(stage1_path)
@@ -63,7 +64,6 @@ root_cause_model = joblib.load(stage2_path)
 action_model = joblib.load(stage3_path)
 encoder = joblib.load(encoder_path)
 encoder2 = joblib.load(encoder2_path)
-
 # =========================
 # ===== Prediction function =====
 # =========================

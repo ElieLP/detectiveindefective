@@ -8,6 +8,7 @@ st.subheader("NCR Analysis Copilot")
 
 df = load_prod_data()
 enriched_df = enrich_dataframe(df)
+enriched_df.to_csv('data/prod_data_enriched.csv', index=False, sep=';')
 
 st.success(f"Loaded {len(enriched_df)} NCRs")
 

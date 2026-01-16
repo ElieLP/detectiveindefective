@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-from src.prediction import predict_from_csv, load_context_data, build_context_prompt, predict_root_cause
+from src.prediction import predict_from_csv, load_context_data, build_context_prompt, predict_root_cause_and_action
 
 st.set_page_config(page_title="Prediction", page_icon="🔮", layout="wide")
 
 st.title("🔮 Root Cause Prediction")
-st.subheader("Upload NCR Data with empty Root Cause field")
+st.subheader("Upload NCR Data with empty Root Cause and/or Corrective actions fields")
 
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
@@ -21,27 +21,35 @@ if uploaded_file is not None:
             context_df = load_context_data()
             context = build_context_prompt(context_df)
         
-        results = []
+        root_causes = []
+        corrective_actions = []
         progress_bar = st.progress(0)
         
         for idx, row in df.iterrows():
             root_cause = row.get('Root cause of occurrence', '')
-            if pd.isna(root_cause) or root_cause == '':
+            corrective = row.get('Corrective actions', '')
+            needs_root_cause = pd.isna(root_cause) or root_cause == ''
+            needs_corrective = pd.isna(corrective) or corrective == ''
+            
+            if needs_root_cause or needs_corrective:
                 with st.spinner(f"Predicting row {idx + 1}/{len(df)}..."):
-                    predicted = predict_root_cause(row, context)
-                    results.append(predicted)
+                    pred_root, pred_action = predict_root_cause_and_action(row, context)
+                    root_causes.append(pred_root if needs_root_cause else root_cause)
+                    corrective_actions.append(pred_action if needs_corrective else corrective)
             else:
-                results.append(root_cause)
+                root_causes.append(root_cause)
+                corrective_actions.append(corrective)
             progress_bar.progress((idx + 1) / len(df))
         
-        df['Root cause of occurrence'] = results
+        df['Root cause of occurrence'] = root_causes
+        df['Corrective actions'] = corrective_actions
         
         st.markdown("### Prediction Results")
         
-        def highlight_root_cause(row):
-            return ['background-color: #e6f3ff; color: #0066cc' if col == 'Root cause of occurrence' else '' for col in row.index]
+        def highlight_predictions(row):
+            return ['background-color: #e6f3ff; color: #0066cc' if col in ['Root cause of occurrence', 'Corrective actions'] else '' for col in row.index]
         
-        styled_df = df.style.apply(highlight_root_cause, axis=1)
+        styled_df = df.style.apply(highlight_predictions, axis=1)
         st.dataframe(styled_df, use_container_width=True)
         
         csv_output = df.to_csv(index=False, sep=';')

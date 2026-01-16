@@ -45,14 +45,14 @@ Corrective Action: {row.get('Corrective actions', '')}
 
 
 def build_prediction_prompt(row: pd.Series, context: str) -> str:
-    """Build prompt for predicting root cause of a single NCR."""
+    """Build prompt for predicting root cause and corrective actions of a single NCR."""
     return f"""You are an expert in manufacturing quality control and root cause analysis.
 
 Based on the following historical NCR (Non-Conformance Report) data:
 
 {context}
 
-Predict the most likely root cause for this new NCR:
+Predict the most likely root cause AND corrective action for this new NCR:
 
 NC Code: {row.get('NC Code', '')}
 NC Description: {row.get('NC description', '')}
@@ -63,13 +63,14 @@ Operation of Detection: {row.get('Operation number of detection', '')}
 Operation of Occurrence: {row.get('Operation number of occurrence', '')}
 Defect Description: {row.get('FDefectDesc_EN', '')}
 QC Comments: {row.get('Fqccomments_EN', '')}
-Corrective Actions: {row.get('Corrective actions', '')}
 
-Respond with ONLY the predicted root cause (a short phrase). Do not include explanations."""
+Respond in this exact format (two lines only):
+Root Cause: <predicted root cause>
+Corrective Action: <predicted corrective action>"""
 
 
-def predict_root_cause(row: pd.Series, context: str) -> str:
-    """Predict root cause for a single NCR row using DashScope."""
+def predict_root_cause_and_action(row: pd.Series, context: str) -> tuple[str, str]:
+    """Predict root cause and corrective action for a single NCR row using DashScope."""
     prompt = build_prediction_prompt(row, context)
     
     messages = [
@@ -82,11 +83,19 @@ def predict_root_cause(row: pd.Series, context: str) -> str:
         messages=messages,
         result_format='message',
         temperature=0.3,
-        max_tokens=100
+        max_tokens=150
     )
     
     if response.status_code == HTTPStatus.OK:
-        return response.output.choices[0].message.content.strip()
+        content = response.output.choices[0].message.content.strip()
+        root_cause = ''
+        corrective_action = ''
+        for line in content.split('\n'):
+            if line.lower().startswith('root cause:'):
+                root_cause = line.split(':', 1)[1].strip()
+            elif line.lower().startswith('corrective action:'):
+                corrective_action = line.split(':', 1)[1].strip()
+        return root_cause, corrective_action
     else:
         raise Exception(f"DashScope error: {response.code} - {response.message}")
 
@@ -112,16 +121,24 @@ def predict_from_csv(
     
     input_df = load_input_data(input_filepath)
     
-    predictions = []
+    root_causes = []
+    corrective_actions = []
     for idx, row in input_df.iterrows():
         root_cause = row.get('Root cause of occurrence', '')
-        if pd.isna(root_cause) or root_cause == '':
-            predicted = predict_root_cause(row, context)
-            predictions.append(predicted)
+        corrective = row.get('Corrective actions', '')
+        needs_root_cause = pd.isna(root_cause) or root_cause == ''
+        needs_corrective = pd.isna(corrective) or corrective == ''
+        
+        if needs_root_cause or needs_corrective:
+            pred_root, pred_action = predict_root_cause_and_action(row, context)
+            root_causes.append(pred_root if needs_root_cause else root_cause)
+            corrective_actions.append(pred_action if needs_corrective else corrective)
         else:
-            predictions.append(root_cause)
+            root_causes.append(root_cause)
+            corrective_actions.append(corrective)
     
-    input_df['Root cause of occurrence'] = predictions
+    input_df['Root cause of occurrence'] = root_causes
+    input_df['Corrective actions'] = corrective_actions
     
     if output_filepath:
         input_df.to_csv(output_filepath, index=False, sep=';')

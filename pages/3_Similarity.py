@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from src.extraction import enrich_dataframe, load_prod_data
-from src.clustering import add_embeddings_and_clusters, compute_embeddings, find_similar
+from src.clustering import predict_defect_root_action, predict_batch
+
 
 st.set_page_config(page_title="Similarity", page_icon="🔍", layout="wide")
 

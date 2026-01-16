@@ -1,47 +1,67 @@
+# pages/3_Similarity.py
+
 import streamlit as st
+import sys
+import os
 import pandas as pd
-import numpy as np
-from src.extraction import enrich_dataframe, load_prod_data
-from src.clustering import predict_defect_root_action, predict_batch
 
+# Add src folder to Python path (for Streamlit Cloud)
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+from extraction import enrich_dataframe, load_prod_data
+from clustering import predict_defect_root_action, predict_batch
+
+# =========================
+# Streamlit page config
+# =========================
 st.set_page_config(page_title="Similarity", page_icon="🔍", layout="wide")
 
-st.title("🔍 Similarity")
-st.subheader("NCR Analysis Copilot")
+st.title("🔍 NCR Defect Prediction")
+st.subheader("Industrial NCR Copilot")
 
+# =========================
+# Load and enrich data
+# =========================
 df = load_prod_data()
 enriched_df = enrich_dataframe(df)
-clustered_df = add_embeddings_and_clusters(enriched_df, description_col='NC description', n_clusters=4)
 
 st.success(f"Loaded {len(df)} NCRs")
 
-st.subheader("Extracted Fields")
+# Show enriched dataframe
+st.subheader("Enriched NCR Data")
 st.dataframe(
-    clustered_df.drop(columns=['embedding']),
+    enriched_df,
     use_container_width=True
 )
 
-st.subheader("Clusters")
-for cluster_id in sorted(clustered_df['cluster'].unique()):
-    cluster_ncrs = clustered_df[clustered_df['cluster'] == cluster_id]
-    with st.expander(f"Cluster {cluster_id} ({len(cluster_ncrs)} NCRs)"):
-        st.dataframe(
-            cluster_ncrs.drop(columns=['embedding']),
-            use_container_width=True
-        )
+# =========================
+# Predict defect, root cause, corrective action
+# =========================
+st.subheader("Predict Categories from Description")
 
-st.subheader("🔎 Find Similar NCRs")
-query = st.text_input("Describe a problem to find similar NCRs:")
-if query:
-    query_embedding = compute_embeddings([query])[0]
-    embeddings = np.vstack(clustered_df['embedding'].values)
-    similar = find_similar(query_embedding, embeddings, top_k=5)
-    
-    similar_indices = [idx for idx, _ in similar]
-    similar_scores = [score for _, score in similar]
-    
-    similar_df = clustered_df.iloc[similar_indices].drop(columns=['embedding']).copy()
-    similar_df.insert(0, 'Similarity', [f"{s:.2%}" for s in similar_scores])
-    
-    st.dataframe(similar_df, use_container_width=True)
+query = st.text_area("Enter defect description to predict categories:")
+
+if st.button("Predict"):
+    if query.strip() == "":
+        st.warning("Please enter a defect description.")
+    else:
+        defect_cat, root_cause_cat, action_cat = predict_defect_root_action(query)
+        st.markdown("### Predicted Categories")
+        st.write(f"- **Defect Category:** {defect_cat}")
+        st.write(f"- **Root Cause Category:** {root_cause_cat}")
+        st.write(f"- **Corrective Action:** {action_cat}")
+
+# =========================
+# Optional: batch predictions
+# =========================
+st.subheader("Batch Prediction from CSV")
+uploaded_file = st.file_uploader("Upload a CSV with a column 'defect_description'", type=["csv"])
+
+if uploaded_file is not None:
+    batch_df = pd.read_csv(uploaded_file)
+    if 'defect_description' not in batch_df.columns:
+        st.error("CSV must have a column named 'defect_description'.")
+    else:
+        batch_result = predict_batch(batch_df, description_col='defect_description')
+        st.success("Batch prediction completed!")
+        st.dataframe(batch_result, use_container_width=True)

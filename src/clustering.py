@@ -1,70 +1,101 @@
 from typing import List, Tuple
 import os
-import numpy as np
 import pandas as pd
-from sentence_transformers import SentenceTransformer
-from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import cosine_similarity
+import joblib
+# import numpy as np
+# from sentence_transformers import SentenceTransformer
+# from sklearn.cluster import KMeans
+# from sklearn.metrics.pairwise import cosine_similarity
 
-MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
-CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
-_model = None
+# =========================
+# ===== Old embedding model (commented out) =====
+# MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
+# CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
+# _model = None
 
-os.environ['HF_HUB_OFFLINE'] = '1'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
+# os.environ['HF_HUB_OFFLINE'] = '1'
+# os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
+# def get_model() -> SentenceTransformer:
+#     global _model
+#     if _model is None:
+#         _model = SentenceTransformer(MODEL_NAME, cache_folder=CACHE_DIR, device='cpu')
+#     return _model
 
-def get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(MODEL_NAME, cache_folder=CACHE_DIR, device='cpu')
-    return _model
+# def compute_embeddings(texts: List[str]) -> np.ndarray:
+#     model = get_model()
+#     return model.encode(texts, show_progress_bar=False)
 
+# def find_similar(query_embedding: np.ndarray, embeddings: np.ndarray, top_k: int = 5) -> List[Tuple[int, float]]:
+#     similarities = cosine_similarity([query_embedding], embeddings)[0]
+#     top_indices = np.argsort(similarities)[::-1][:top_k]
+#     return [(int(idx), float(similarities[idx])) for idx in top_indices]
 
-def compute_embeddings(texts: List[str]) -> np.ndarray:
-    model = get_model()
-    return model.encode(texts, show_progress_bar=False)
+# def cluster_ncrs(embeddings: np.ndarray, n_clusters: int = 5) -> np.ndarray:
+#     n_samples = len(embeddings)
+#     n_clusters = min(n_clusters, n_samples)
+#     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+#     return kmeans.fit_predict(embeddings)
 
+# def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'root_cause', n_clusters: int = 5) -> pd.DataFrame:
+#     result = df.copy()
+#     texts = df[description_col].tolist()
+#     embeddings = compute_embeddings(texts)
+#     result['embedding'] = list(embeddings)
+#     result['cluster'] = cluster_ncrs(embeddings, n_clusters)
+#     return result
 
-def find_similar(query_embedding: np.ndarray, embeddings: np.ndarray, top_k: int = 5) -> List[Tuple[int, float]]:
-    similarities = cosine_similarity([query_embedding], embeddings)[0]
-    top_indices = np.argsort(similarities)[::-1][:top_k]
-    return [(int(idx), float(similarities[idx])) for idx in top_indices]
+# =========================
+# ===== Load your ML models =====
+# =========================
+stage1_pipeline = joblib.load("stage1_defect_model.pkl")       # TF-IDF + LogisticRegression
+root_cause_model = joblib.load("stage2_root_cause_model.pkl")  # LogisticRegression
+action_model = joblib.load("stage3_corrective_action_model.pkl") # LogisticRegression
 
+encoder = joblib.load("encoder_defect.pkl")        # OneHotEncoder for defect -> root cause
+encoder2 = joblib.load("encoder_defect_root.pkl")  # OneHotEncoder for defect+root -> action
 
-def cluster_ncrs(embeddings: np.ndarray, n_clusters: int = 5) -> np.ndarray:
-    n_samples = len(embeddings)
-    n_clusters = min(n_clusters, n_samples)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    return kmeans.fit_predict(embeddings)
-
-
-def compute_attribute_correlation(df: pd.DataFrame, field1: str, field2: str, top_k: int = 20) -> pd.DataFrame:
-    """Find top correlated attribute value pairs between two fields."""
-    if field1 not in df.columns or field2 not in df.columns:
-        return pd.DataFrame()
+# =========================
+# ===== Prediction function =====
+# =========================
+def predict_defect_root_action(defect_description: str):
+    """
+    Given a defect description, predicts:
+    1. Defect Category
+    2. Root Cause Category
+    3. Corrective Action Category
+    """
+    # Stage 1: defect category
+    predicted_defect = stage1_pipeline.predict([defect_description])[0]
     
-    pairs = df.groupby([field1, field2]).size().reset_index(name='count')
-    pairs = pairs.dropna()
-    pairs = pairs[pairs[field1].astype(str).str.strip() != '']
-    pairs = pairs[pairs[field2].astype(str).str.strip() != '']
-    pairs = pairs.sort_values('count', ascending=False).head(top_k)
-    pairs.columns = [field1, field2, 'Count']
-    return pairs.reset_index(drop=True)
+    # Stage 2: root cause
+    X_root = encoder.transform([[predicted_defect]])
+    predicted_root = root_cause_model.predict(X_root)[0]
+    
+    # Stage 3: corrective action
+    X_action = encoder2.transform([[predicted_defect, predicted_root]])
+    predicted_action = action_model.predict(X_action)[0]
+    
+    return predicted_defect, predicted_root, predicted_action
 
+# =========================
+# ===== Main interactive interface =====
+# =========================
+if __name__ == "__main__":
+    print("=== Industrial Defect Prediction System ===")
+    print("Type 'exit' or 'quit' to stop.\n")
+    
+    while True:
+        user_input = input("Enter defect description:\n> ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Exiting.")
+            break
+        
+        defect_cat, root_cause_cat, action_cat = predict_defect_root_action(user_input)
+        
+        print("\nPredicted categories:")
+        print(f"- Defect Category       : {defect_cat}")
+        print(f"- Root Cause Category   : {root_cause_cat}")
+        print(f"- Corrective Action     : {action_cat}")
+        print("="*50)
 
-def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'root_cause', n_clusters: int = 5) -> pd.DataFrame:
-    result = df.copy()
-    texts = df[description_col].tolist()
-    embeddings = compute_embeddings(texts)
-    result['embedding'] = list(embeddings)
-    result['cluster'] = cluster_ncrs(embeddings, n_clusters)
-    return result
-
-
-if __name__ == '__main__':
-    df = pd.read_csv('data/sample_ncrs.csv')
-    result = add_embeddings_and_clusters(df, n_clusters=4)
-    print(result[['ncr_id', 'cluster']].to_string())
-    print("\nCluster distribution:")
-    print(result['cluster'].value_counts().sort_index())

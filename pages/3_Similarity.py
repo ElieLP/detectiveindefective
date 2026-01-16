@@ -1,23 +1,29 @@
 # pages/3_Similarity.py
-
 import streamlit as st
 import pandas as pd
 import os
-import sys
+import importlib.util
 
-# -----------------------
-# Make sure Python sees src/
-# -----------------------
-# Get absolute path to the repo root (parent of pages/)
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# ----------------------------
+# Helper function to import a Python file as module
+# ----------------------------
+def load_module_from_file(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-# Add repo root to Python path
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
+# ----------------------------
+# Absolute paths to src files
+# ----------------------------
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+clustering_path = os.path.join(BASE_DIR, "clustering.py")
+extraction_path = os.path.join(BASE_DIR, "extraction.py")
 
-# Now import from src package
-from src.clustering import predict_defect_root_action, predict_batch
-from src.extraction import enrich_dataframe, load_prod_data
+# Load modules
+clustering = load_module_from_file("clustering", clustering_path)
+extraction = load_module_from_file("extraction", extraction_path)
+
 
 
 # =========================

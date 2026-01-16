@@ -61,19 +61,21 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 def categorize_corrective(val: str) -> str:
     """Categorize corrective actions."""
-    val = str(val).strip().lower()
-    if val in ['nan', 'none', '']:
-        return 'Not Specified'
-    elif 'clamping force' in val:
+    val = str(val).strip()
+    if val in ['NaN', 'nan', '', 'None']:
+        return 'Action Not Specified (NaN)'
+    elif 'clamping force' in val.lower():
         return 'Cancel Releasing Clamping Force'
-    elif 'manual tool calibration' in val:
+    elif 'manual tool calibration' in val.lower():
         return 'Add Manual Tool Calibration'
-    elif 'compensation' in val:
-        return 'Cancelled Compensation'
-    elif 'lesson' in val:
+    elif 'compensation 0.005' in val.lower():
+        return 'Cancelled Compensation 0.005'
+    elif 'lesson&learn' in val.lower():
         return 'Lesson & Learn'
-    elif 'marking' in val and 'maintenance' in val:
-        return 'Marking Machine Maintenance'
+    elif val == 'Maintenance marking machine':
+        return 'Maintenance marking machine'
+    elif val == 'Marking machine maintenance':
+        return 'Marking machine maintenance'
     else:
         return 'Other'
 
@@ -81,15 +83,17 @@ def categorize_corrective(val: str) -> str:
 def categorize_root_cause(val: str) -> str:
     """Categorize root causes."""
     val = str(val).strip()
-    if val in ['NaN', 'nan', '', 'None']:
+    if val == 'NaN' or val == 'nan' or val == '':
         return 'Undefined'
     elif 'EL2415' in val:
         return 'Related to NC EL2415'
-    elif 'Marking' in val or 'marking' in val:
+    elif '1.Marking NC' in val:
+        return 'Marking Precision'
+    elif 'Marking machine precision' in val:
         return 'Marking Precision'
     elif 'AAAA-02-11 deviation' in val:
         return 'Machine AAAA-02-11 Deviation'
-    elif 'CP&CPK' in val or 'Cp' in val:
+    elif 'CP&CPK' in val:
         return 'Process Stability (CP/CPK)'
     elif 'AAAA-02-11 not stable' in val:
         return 'Machine AAAA-02-11 Stability'
@@ -97,12 +101,10 @@ def categorize_root_cause(val: str) -> str:
         return 'Logistics & Transport'
     elif 'not clear' in val:
         return 'Unclear'
-    elif 'BBBB-02-05' in val and ('centering' in val or 'cerntering' in val):
+    elif 'has deviation on centering' in val:
         return 'Machine BBBB-02-05 Centering'
-    elif 'calibration' in val.lower():
-        return 'Tool Calibration'
-    elif 'investigation' in val.lower():
-        return 'Under Investigation'
+    elif 'deviation on cerntering' in val:
+        return 'Machine BBBB-02-05 Centering'
     else:
         return 'Other'
 
@@ -121,7 +123,42 @@ def categorize_fqc(text: str) -> str:
     elif any(word in text for word in ['confirmed', 'reply', 'decided', 'rework']):
         return 'QA Replied/Action Taken'
     else:
-        return 'Other'
+        return 'Other/General'
+
+
+def categorize_defect(val: str) -> str:
+    """Categorize defect descriptions."""
+    val = str(val).strip()
+    if val in ['NaN', 'nan', '', '/']:
+        return 'Undefined'
+    elif val == 'CO2910-R342':
+        return 'CO2910-R342 Deviation'
+    elif val == 'OP7200 DA':
+        return 'OP7200 DA Operation'
+    elif 'DA2512100009' in val:
+        return 'DA2512100009 (Post-Check)'
+    elif val in ['out of tolerance after re-measurement 1', 'after re-measurement dimension out of tolerance']:
+        return 'Out of Tolerance (Post-Check)'
+    elif 'the 1st time' in val:
+        return 'Primary Measurement Failure'
+    elif 'EL0312-MAX' in val:
+        return 'EL0312-MAX Deviation'
+    elif val == 'dimension out of tolerance':
+        return 'General Out of Tolerance'
+    elif 'after rework' in val:
+        return 'Post-Rework Failure'
+    elif 'CO2910-R342 out of tolerance' in val:
+        return 'CO2910-R342 Out of Tolerance'
+    elif 'dent' in val:
+        return 'Flange Surface Dent'
+    elif 'scratch' in val:
+        return 'Flange Scratch'
+    elif 'visually clear' in val:
+        return 'Marking Visual Clarity'
+    elif 'too shallow' in val:
+        return 'Marking Depth Issue'
+    else:
+        return 'Other Technical Records'
 
 
 def extract_comment_dates(text: str) -> str:
@@ -162,6 +199,9 @@ def enrich_dataframe(df: pd.DataFrame, description_col: str = 'NC description') 
         enriched['fqc_category'] = enriched['Fqccomments_EN'].apply(categorize_fqc)
         enriched['fqc_dates'] = enriched['Fqccomments_EN'].apply(extract_comment_dates)
         enriched['fqc_dept_codes'] = enriched['Fqccomments_EN'].apply(extract_comment_codes)
+    
+    if 'FDefectDesc_EN' in enriched.columns:
+        enriched['defect_category'] = enriched['FDefectDesc_EN'].apply(categorize_defect)
     
     return enriched
 

@@ -39,13 +39,18 @@ def cluster_ncrs(embeddings: np.ndarray, n_clusters: int = 5) -> np.ndarray:
     return kmeans.fit_predict(embeddings)
 
 
-def compute_attribute_correlation(df: pd.DataFrame, field1: str, field2: str) -> pd.DataFrame:
-    """Compute crosstab between two categorical fields to show their correlation."""
+def compute_attribute_correlation(df: pd.DataFrame, field1: str, field2: str, top_k: int = 20) -> pd.DataFrame:
+    """Find top correlated attribute value pairs between two fields."""
     if field1 not in df.columns or field2 not in df.columns:
         return pd.DataFrame()
     
-    crosstab = pd.crosstab(df[field1].fillna('Unknown'), df[field2].fillna('Unknown'))
-    return crosstab
+    pairs = df.groupby([field1, field2]).size().reset_index(name='count')
+    pairs = pairs.dropna()
+    pairs = pairs[pairs[field1].astype(str).str.strip() != '']
+    pairs = pairs[pairs[field2].astype(str).str.strip() != '']
+    pairs = pairs.sort_values('count', ascending=False).head(top_k)
+    pairs.columns = [field1, field2, 'Count']
+    return pairs.reset_index(drop=True)
 
 
 def add_embeddings_and_clusters(df: pd.DataFrame, description_col: str = 'root_cause', n_clusters: int = 5) -> pd.DataFrame:

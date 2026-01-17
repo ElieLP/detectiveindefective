@@ -117,13 +117,45 @@ QC Comments: {row.get('Fqccomments_EN', '')}""")
     
     ncr_list = "\n\n".join(ncr_items)
     
-    return f"""You are an expert in manufacturing quality control and root cause analysis.
+    return f"""You are an expert in manufacturing quality control. You are familiar with root cause analysis and proposing corrective actions. You mission is to become a machine learning model to predict root cause analysis and proposing corrective actions .
 
-Based on the following historical NCR (Non-Conformance Report) data:
+For your training dataset, you get the following historical Non-Conformity Report (NCR) data:
 
 {context}
 
-Predict the most likely root cause AND corrective action for each of these NCRs:
+Hereunder a description of columns for better understanding, some are labelled as "DO NOT TAKE IT INTO ACCOUNT", hereunder, you must not take them into account:
+Part Type: main part product families, there are only 2 possible values
+Job Order: identifier of a specific sequence of production operations
+Operation number of dectection: detection operation ID of detection which triggered a non conformity
+NC Description: Description of non conformity (instructions: DO NOT TAKE IT INTO ACCOUNT)
+NC Code: ID of a non conformity type
+Nomial: DO NOT TAKE IT INTO ACCOUNT
+FLowerTolerance: DO NOT TAKE IT INTO ACCOUNT
+FUpperTolerance: DO NOT TAKE IT INTO ACCOUNT
+Measured Value: DO NOT TAKE IT INTO ACCOUNT
+FDefectDesc_EN: human input of the defect description
+Fqccomments_EN: human input of quality comments on the defect part
+MachineNum of detection: ID of detection machine, if the cell is "/" or "\" then it means that the defect detection was made during the production
+Operator of detection: ID of the human worker working on the detection machine which detected the defect
+Date of detection: date of defect detection, can be different from the date of production, the number of days between date of production and date of detection can be relevant for the root cause, instructions: calculate it in a spearate columns and integrate it in your training data
+Operation number of occurrence:  manufacturing operation ID of detection which triggered a non conformity by production worker supervision
+operator of machining:  ID of the human worker working on the production machine where a defect was detected
+MachineNum of occurrence: ID of production machine where the defect was detected or where the detected part comes from
+Date of machining: date of production, can be different from the date of production, the number of days between date of production and date of detection can be relevant for the root cause, instructions: calculate it in a spearate columns and integrate it in your training data
+Root cause of occurrence: identified or likely root cause of the defect
+Corrective actions: actions undertaken to resolve the root causes
+Gold Sample: if yes, the NCR is considered as complete and very accurate and as a model
+
+Some of columns are more relevant, consider them more and weight more than the rest. Those columns are:
+Part Type
+Operation number of dectection
+NC Code
+Operation number of occurrence
+Gold Sample (if yes, the NCR must be more considered into your evaluation)
+
+A correlation must be found between machine ID, operation ID, worker ID and non conformity code to train your model after.
+
+Based on the dataset and the instruction, your task is to predict the most likely root cause AND corrective action for each of these NCRs using machine learning for structured data and LLM for the classification of the human input. Once the predictive model set, predict the root cause and the corrective action of following NCR :
 
 {ncr_list}
 

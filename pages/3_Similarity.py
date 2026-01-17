@@ -14,7 +14,7 @@ def load_module_from_file(module_name, file_path):
     return module
 
 # =============================
-# Absolute paths to src modules
+# Absolute path to clustering module
 # =============================
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 clustering_path = os.path.join(BASE_DIR, "clustering.py")
@@ -25,9 +25,9 @@ clustering = load_module_from_file("clustering", clustering_path)
 # =============================
 # Streamlit page config
 # =============================
-st.set_page_config(page_title="NCR Prediction", page_icon="🔍", layout="wide")
-st.title("🔍 NCR Defect Prediction")
-st.subheader("Enter a defect description to predict categories")
+st.set_page_config(page_title="Defect Category Predictor", page_icon="🔍", layout="wide")
+st.title("🔍 NCR Defect Category Prediction")
+st.subheader("Enter a defect description to predict its defect category")
 
 # =============================
 # Single defect prediction
@@ -39,14 +39,11 @@ if st.button("Predict"):
         st.warning("Please enter a defect description.")
     else:
         try:
-            # Predict using your models
-            defect_cat, root_cause_cat, action_cat = clustering.predict_defect_root_action(user_input)
+            # Predict only defect category
+            defect_cat = clustering.predict_defect_root_action(user_input)[0]
 
-            # Display results
-            st.markdown("### Predicted Categories")
-            st.write(f"- **Defect Category:** {defect_cat}")
-            st.write(f"- **Root Cause Category:** {root_cause_cat}")
-            st.write(f"- **Corrective Action:** {action_cat}")
+            # Display result
+            st.markdown("### Predicted Defect Category")
+            st.write(f"**{defect_cat}**")
         except Exception as e:
             st.error(f"Prediction failed: {e}")
-

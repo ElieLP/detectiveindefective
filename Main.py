@@ -12,5 +12,5 @@ enriched_df.to_csv('data/prod_data_enriched.csv', index=False, sep=';')
 
 st.success(f"Loaded {len(enriched_df)} NCRs")
 
-st.subheader("Cleaned Dataset")
+st.subheader("Past NCRs")
 st.dataframe(enriched_df, use_container_width=True)

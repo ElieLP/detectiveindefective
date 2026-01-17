@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 from src.prediction import load_context_data, build_context_prompt, predict_batch
 
-st.set_page_config(page_title="Prediction", page_icon="🔮", layout="wide")
+st.set_page_config(page_title="🔮 Prediction", page_icon="🔮", layout="wide")
 
-st.title("🔮 Root Cause Prediction")
-st.subheader("Upload NCR Data with empty Root Cause and/or Corrective actions fields")
+st.title("🔮 Prediction")
+st.subheader("Use the past data to predict root causes or corrective actions")
 
+st.text("Upload NCR Data with empty Root Cause and/or Corrective actions fields")
+st.image("pages/assets/prediction.png")
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
 if uploaded_file is not None:

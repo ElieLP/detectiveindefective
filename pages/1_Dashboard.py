@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 from src.extraction import load_prod_data, enrich_dataframe
 
-st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
+st.set_page_config(page_title="📊 Dashboard", page_icon="📊", layout="wide")
 
 st.title("📊 Dashboard")
+st.subheader("NCR Charts, may help you find patterns the AI cannot find")
 
 df = load_prod_data()
 enriched_df = enrich_dataframe(df)

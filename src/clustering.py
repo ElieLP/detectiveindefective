@@ -1,23 +1,19 @@
-from typing import List, Tuple
 import os
-import pandas as pd
+import re
 import joblib
 
 # =========================
 # ===== Load your ML models =====
 # =========================
 
-# Folder where this file is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Paths to your models (all in the same folder)
 stage1_path = os.path.join(BASE_DIR, "stage1_defect_model.pkl")
 stage2_path = os.path.join(BASE_DIR, "stage2_root_cause_model.pkl")
 stage3_path = os.path.join(BASE_DIR, "stage3_corrective_action_model.pkl")
 encoder_path = os.path.join(BASE_DIR, "encoder_defect.pkl")
 encoder2_path = os.path.join(BASE_DIR, "encoder_defect_root.pkl")
 
-# Load models
 stage1_pipeline = joblib.load(stage1_path)
 root_cause_model = joblib.load(stage2_path)
 action_model = joblib.load(stage3_path)
@@ -25,11 +21,40 @@ encoder = joblib.load(encoder_path)
 encoder2 = joblib.load(encoder2_path)
 
 # =========================
-# ===== UNKNOWN HANDLING CONFIG (NEW) =====
+# ===== CONFIG =====
 # =========================
 
 UNKNOWN_LABEL = "unknown"
-UNKNOWN_THRESHOLD = 0.5   # Tune between 0.4–0.7 depending on your data
+UNKNOWN_THRESHOLD = 0.30   # LOWERED safely after normalization
+MIN_ALPHA_RATIO = 0.3      # % of alphabetic characters required
+MIN_TEXT_LENGTH = 5
+
+# =========================
+# ===== TEXT UTILITIES (NEW) =====
+# =========================
+
+def normalize_text(text: str) -> str:
+    """
+    Removes serial numbers / IDs and normalizes text
+    """
+    text = text.lower()
+    text = re.sub(r"[a-z]{1,3}\d{4,}", " ", text)  # remove codes like DA2512100009
+    text = re.sub(r"[^a-z\s\-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def is_meaningful_text(text: str) -> bool:
+    """
+    Rejects pure noise like 'fsihfsh', '123123', '////'
+    """
+    if len(text) < MIN_TEXT_LENGTH:
+        return False
+
+    alpha_chars = sum(c.isalpha() for c in text)
+    alpha_ratio = alpha_chars / max(len(text), 1)
+
+    return alpha_ratio >= MIN_ALPHA_RATIO
 
 # =========================
 # ===== Prediction function =====
@@ -37,17 +62,19 @@ UNKNOWN_THRESHOLD = 0.5   # Tune between 0.4–0.7 depending on your data
 
 def predict_defect_root_action(defect_description: str):
     """
-    Given a defect description, predicts:
-    1. Defect Category
-    2. Root Cause Category
-    3. Corrective Action Category
-
-    If the input is low-confidence / out-of-distribution,
-    returns 'unknown' for all outputs.
+    Predicts defect, root cause, corrective action.
+    Returns 'unknown' for OOD or meaningless input.
     """
 
-    # ===== Stage 1: Defect category (with confidence check) =====
-    probs = stage1_pipeline.predict_proba([defect_description])[0]
+    # ===== Normalize input =====
+    cleaned_text = normalize_text(defect_description)
+
+    # ===== Linguistic sanity check =====
+    if not is_meaningful_text(cleaned_text):
+        return UNKNOWN_LABEL, UNKNOWN_LABEL, UNKNOWN_LABEL
+
+    # ===== Stage 1: Defect category with confidence =====
+    probs = stage1_pipeline.predict_proba([cleaned_text])[0]
     max_confidence = probs.max()
     predicted_defect = stage1_pipeline.classes_[probs.argmax()]
 
@@ -86,4 +113,5 @@ if __name__ == "__main__":
         print(f"- Root Cause Category   : {root_cause_cat}")
         print(f"- Corrective Action     : {action_cat}")
         print("=" * 50)
+
 

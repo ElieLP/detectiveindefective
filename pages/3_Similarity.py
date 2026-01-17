@@ -1,7 +1,6 @@
 # pages/3_Similarity.py
 
 import streamlit as st
-import pandas as pd
 import os
 import importlib.util
 
@@ -19,34 +18,35 @@ def load_module_from_file(module_name, file_path):
 # =============================
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 clustering_path = os.path.join(BASE_DIR, "clustering.py")
-extraction_path = os.path.join(BASE_DIR, "extraction.py")
 
-# Load modules dynamically
+# Load clustering module dynamically
 clustering = load_module_from_file("clustering", clustering_path)
-extraction = load_module_from_file("extraction", extraction_path)
 
 # =============================
 # Streamlit page config
 # =============================
-st.set_page_config(page_title="NCR Copilot", page_icon="🔍", layout="wide")
+st.set_page_config(page_title="NCR Prediction", page_icon="🔍", layout="wide")
 st.title("🔍 NCR Defect Prediction")
-st.subheader("Industrial NCR Copilot")
+st.subheader("Enter a defect description to predict categories")
 
 # =============================
-# Load and enrich data
+# Single defect prediction
 # =============================
-try:
-    df = extraction.load_prod_data()
-    enriched_df = extraction.enrich_dataframe(df)
-    st.success(f"Loaded {len(df)} NCRs")
-except Exception as e:
-    st.error(f"Failed to load NCR data: {e}")
-    enriched_df = pd.DataFrame()
+user_input = st.text_area("Defect Description:")
 
-# Show enriched dataframe
-if not enriched_df.empty:
-    st.subheader("Enriched NCR Data")
-    st.dataframe(enriched_df, use_container_width=True)
+if st.button("Predict"):
+    if user_input.strip() == "":
+        st.warning("Please enter a defect description.")
+    else:
+        try:
+            # Predict using your models
+            defect_cat, root_cause_cat, action_cat = clustering.predict_defect_root_action(user_input)
 
-#
+            # Display results
+            st.markdown("### Predicted Categories")
+            st.write(f"- **Defect Category:** {defect_cat}")
+            st.write(f"- **Root Cause Category:** {root_cause_cat}")
+            st.write(f"- **Corrective Action:** {action_cat}")
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
 

@@ -64,6 +64,7 @@ st.subheader("📋 QA Comment Categories")
 st.caption("Themes from QA comments. Reveals inspector concerns.")
 fqc_cats = enriched_df['fqc_category'].value_counts().reset_index()
 fqc_cats.columns = ['Category', 'Count']
+fqc_cats = fqc_cats[~fqc_cats['Category'].str.lower().isin(['undefined', 'pending decision'])]
 st.dataframe(fqc_cats, use_container_width=True, hide_index=True)
 
 st.subheader("🔗 Attribute Correlations")
